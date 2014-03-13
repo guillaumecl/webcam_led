@@ -16,6 +16,9 @@
 
 #define UNUSED(x) ((void)x)
 
+#define LIGHT 1
+#define UNLIGHT 2
+
 int connected = 1;
 
 /**
@@ -85,9 +88,9 @@ int handle_request(int fd, struct webcam *w)
 	if (sscanf(buffer, "%c\n", &command) == 1)
 	{
 		if (command == '0')
-			webcam_unlight(w);
+			return UNLIGHT;
 		else if (command == '1')
-			webcam_light(w);
+			return LIGHT;
 	}
 
 	return 0;
@@ -135,25 +138,47 @@ int try_accept(int sock, struct pollfd *polls, int *num_socks)
  */
 void process_clients(struct pollfd *polls, int *num_socks, struct webcam *w)
 {
-	int i;
-	int found = 0;
+	int i, response, found = 0, lighted = 0;
+
+	static int client_lighted[MAX_POLLS];
 
 	/* Note: starting at 1 because 0 is the listening socket. */
 	for (i = 1; i < MAX_POLLS && found < *num_socks; ++i)
 	{
 		if (polls[i].revents)
 		{
-			if (handle_request(polls[i].fd, w) < 0)
+			response = handle_request(polls[i].fd, w);
+
+			if (response < 0)
 			{
 				close(polls[i].fd);
 				memset(&polls[i], 0, sizeof(struct pollfd));
 				--*num_socks;
+			}
+			else if (response == LIGHT)
+			{
+				client_lighted[i] = 1;
+			}
+			else if (response == UNLIGHT)
+			{
+				client_lighted[i] = 0;
 			}
 		}
 		if (polls[i].fd >= 0)
 		{
 			++found;
 		}
+
+		lighted |= client_lighted[i];
+	}
+
+	if (lighted)
+	{
+		webcam_light(w);
+	}
+	else
+	{
+		webcam_unlight(w);
 	}
 }
 
