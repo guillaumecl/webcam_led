@@ -151,6 +151,7 @@ void process_clients(struct pollfd *polls, int *num_socks, struct webcam *w)
 
 			if (response < 0)
 			{
+				client_lighted[i] = 0;
 				close(polls[i].fd);
 				memset(&polls[i], 0, sizeof(struct pollfd));
 				--*num_socks;
