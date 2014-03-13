@@ -126,7 +126,7 @@ err_free:
 
 void webcam_free(struct webcam *w)
 {
-	if (w->fd < 0)
+	if (!w || w->fd < 0)
 		return;
 
 	webcam_unlight(w);
