@@ -1,6 +1,10 @@
 
-#ifndef WEBCAM__H
-#define WEBCAM__H
+#ifndef WEBCAM_LED__H
+#define WEBCAM_LED__H
+
+#if defined (__cplusplus)
+extern "C" {
+#endif
 
 /**
  * Opaque structure containing a webcam information.
@@ -42,4 +46,9 @@ int webcam_light(struct webcam *w);
  */
 int webcam_unlight(struct webcam *w);
 
-#endif // WEBCAM__H
+#if defined (__cplusplus)
+}
+#endif
+
+
+#endif // WEBCAM_LED__H
