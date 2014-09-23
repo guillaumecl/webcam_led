@@ -27,11 +27,11 @@
 
 struct webcam
 {
+	char *name;
+
 	int fd;
 	void *map_start;
 	size_t map_length;
-
-	int lighted;
 };
 
 static int xioctl(int fh, int request, void *arg)
@@ -48,12 +48,12 @@ static int xioctl(int fh, int request, void *arg)
 
 struct webcam *webcam_init(const char *dev_name)
 {
-	struct v4l2_buffer buf;
-	struct v4l2_requestbuffers req;
 	struct webcam *w = malloc(sizeof(struct webcam));
+	unsigned int len;
 
 	if (w == NULL)
 	{
+		errno = ENOMEM;
 		return NULL;
 	}
 
@@ -66,20 +66,50 @@ struct webcam *webcam_init(const char *dev_name)
 		}
 	}
 
-	w->fd = v4l2_open(dev_name, O_RDWR | O_NONBLOCK, 0);
-	if (w->fd < 0)
+	len = strlen(dev_name);
+	w->name = malloc(len);
+	if (w->name == NULL)
 	{
-		goto err_free;
+		errno = ENOMEM;
+		free(w);
+		return NULL;
 	}
+	memcpy(w->name, dev_name, len+1);
+
+	w->fd = 0;
+	return w;
+}
+
+void webcam_free(struct webcam *w)
+{
+	if (!w)
+		return;
+
+	webcam_unlight(w);
+
+	free(w->name);
+	free(w);
+}
+
+int webcam_light(struct webcam *w)
+{
+	struct v4l2_buffer buf;
+	struct v4l2_requestbuffers req;
+	enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+	if (w->fd)
+		return 0;
+
+	w->fd = v4l2_open(w->name, O_RDWR | O_NONBLOCK, 0);
+	if (w->fd < 0)
+		return 1;
 
 	memset(&req, 0, sizeof(req));
 	req.count = 1;
 	req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	req.memory = V4L2_MEMORY_MMAP;
 	if (xioctl(w->fd, VIDIOC_REQBUFS, &req) < 0)
-	{
 		goto error_close;
-	}
 
 	memset(&buf, 0, sizeof(buf));
 
@@ -88,9 +118,7 @@ struct webcam *webcam_init(const char *dev_name)
 	buf.index       = 0;
 
 	if (xioctl(w->fd, VIDIOC_QUERYBUF, &buf) < 0)
-	{
 		goto error_close;
-	}
 
 	w->map_length = buf.length;
 	w->map_start = v4l2_mmap(NULL, buf.length,
@@ -98,20 +126,20 @@ struct webcam *webcam_init(const char *dev_name)
 						  w->fd, buf.m.offset);
 
 	if (w->map_start == MAP_FAILED)
-	{
 		goto error_close;
-	}
 
 	memset(&buf, 0, sizeof(buf));
 	buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	buf.memory = V4L2_MEMORY_MMAP;
 	buf.index = 0;
 	if (xioctl(w->fd, VIDIOC_QBUF, &buf) < 0)
-	{
 		goto error_unmap;
-	}
 
-	return w;
+
+	if (xioctl(w->fd, VIDIOC_STREAMON, &type) < 0)
+		goto error_unmap;
+
+	return 0;
 
 error_unmap:
 	v4l2_munmap(w->map_start, w->map_length);
@@ -119,47 +147,18 @@ error_unmap:
 error_close:
 	v4l2_close(w->fd);
 
-err_free:
-	free(w);
-	return NULL;
-}
-
-void webcam_free(struct webcam *w)
-{
-	if (!w || w->fd < 0)
-		return;
-
-	webcam_unlight(w);
-	v4l2_munmap(w->map_start, w->map_length);
-	v4l2_close(w->fd);
-
-	free(w);
-}
-
-int webcam_light(struct webcam *w)
-{
-	if (w->lighted)
-		return 0;
-
-	enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	int r = xioctl(w->fd, VIDIOC_STREAMON, &type);
-	if (r == 0)
-	{
-		w->lighted = 1;
-	}
-	return r;
+	return 1;
 }
 
 int webcam_unlight(struct webcam *w)
 {
-	if (!w->lighted)
+	enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	if (!w->fd)
 		return 0;
 
-	enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	int r = xioctl(w->fd, VIDIOC_STREAMOFF, &type);
-	if (r == 0)
-	{
-		w->lighted = 0;
-	}
-	return r;
+	xioctl(w->fd, VIDIOC_STREAMOFF, &type);
+	v4l2_munmap(w->map_start, w->map_length);
+	v4l2_close(w->fd);
+	w->fd = 0;
+	return 0;
 }
