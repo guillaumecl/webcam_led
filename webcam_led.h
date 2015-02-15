@@ -38,7 +38,7 @@ void webcam_free(struct webcam *w);
 int webcam_light(struct webcam *w);
 
 /**
- * Turns the webcam light on.
+ * Turns the webcam light off.
  *
  * w must have been returned by webcam_init.
  *

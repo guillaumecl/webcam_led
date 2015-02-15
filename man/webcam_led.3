@@ -1,0 +1,72 @@
+.\" Manpage for webcam_led.
+.\" Contact gclement@baobob.org.in to correct errors or typos.
+.\" You may distribute this file under the terms of the GNU Free
+.\" Documentation License.
+.TH man 1 "15 Feb 2015" "1.0.1" "webcam_led man page"
+.SH NAME
+webcam_led \- Allows to control a webcam led
+.SH SYNOPSIS
+.nf
+.B #include <webcam_led/webcam_led.h>
+.sp
+.BI "struct webcam_led *webcam_init(const char *" dev_name );
+
+.BI "void webcam_free(struct webcam_led *" webcam );
+
+.BI "int webcam_light(struct webcam *" webcam );
+
+.BI "int webcam_unlight(struct webcam *" webcam );
+
+.SH DESCRIPTION
+.B webcam_led
+is a small library that allows to turn the led of a webcam on when desired.
+
+.BR webcam_init
+opens a descriptor to the specified device. If
+.I device
+is NULL, the
+.BR VIDEO_DEVICE
+environment variable is used instead. The device is not opened by
+.BR webcam_init
+itself. It only returns once the necessary memory has been allocated. In particular, if the device does not exists,
+.BR webcam_init
+still returns successfully.
+.PP
+.BR webcam_free
+unlights the leds, frees all allocated resources including the memory reserved by
+.BR webcam_init.
+The
+.I webcam
+argument must have been returned by
+.BR webcam_init.
+.PP
+.BR webcam_light
+opens the
+.I webcam
+device returned by
+.BR webcam_init
+and does the necessary work to have its LED turned on unless it is already on. It returns 0 if everything was successful. In the other case, it returns nonzero, and an error code is available in
+.BR errno.
+If the
+.I webcam
+device is already ON, nothing is done and
+.BR webcam_light
+returns successfully.
+.PP
+.BR webcam_unlight
+closes the
+.I webcam
+device returned by
+.BR webcam_init
+and does the necessary work to have its LED turned off. It returns 0 if everything was successful. In the other case, it returns nonzero, and an error code is available in
+.BR errno
+Note that no reference counting is done here. No matter how many times
+.BR webcam_light
+has been called, a single call to
+.BR webcam_unlight
+will turn the LED off.
+.SH BUGS
+The list of bugs can be accessed at
+.BR https://github.com/guillaumecl/webcam_led/issues
+.SH AUTHOR
+Guillaume Clement (gclement@baobob.org)
